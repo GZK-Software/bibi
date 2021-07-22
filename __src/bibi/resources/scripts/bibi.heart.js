@@ -3896,7 +3896,7 @@ I.Menu = { create: () => {
         E.add('bibi:moved-pointer', BibiEvent => {
             if(I.isPointerStealth()) return false;
             clearTimeout(Menu.Timer_close);
-            if(BibiEvent.Division.Y == 'top') { //if(BibiEvent.Coord.Y < Menu.Height * 1.5) {
+            if(BibiEvent.Coord.Y <= Menu.Height && !O.isPointableContent(BibiEvent.target)) { // if(BibiEvent.Division.Y == 'top' && !O.isPointableContent(BibiEvent.target)) {
                 E.dispatch(Menu, 'bibi:hovered', BibiEvent);
             } else if(Menu.Hover) {
                 Menu.Timer_close = setTimeout(() => E.dispatch(Menu, 'bibi:unhovered', BibiEvent), 123);
@@ -3930,7 +3930,7 @@ I.Menu = { create: () => {
         const Components = [];
         if(!S['fix-reader-view-mode'])                                                                     Components.push('ViewModeSection');
         if(O.Embedded)                                                                                     Components.push('NewWindowButton');
-        if(O.FullscreenTarget && !O.TouchOS)                                                               Components.push('FullscreenButton');
+        if(O.FullscreenTarget && !O.TouchOS && !sML.UA.Trident)                                            Components.push('FullscreenButton');
         if(S['website-href'] && /^https?:\/\/[^\/]+/.test(S['website-href']) && S['website-name-in-menu']) Components.push('WebsiteLink');
         if(!S['remove-bibi-website-link'])                                                                 Components.push('BibiWebsiteLink');
         if(!Components.length) {
@@ -4505,7 +4505,7 @@ I.Loupe = { create: () => {
     if(S['use-loupe-ui']) {
         const ButtonGroup = I.Menu.R.addButtonGroup({
             Sticky: true,
-            Tiled: true,
+            Type: 'Tiled',
             id: 'bibi-buttongroup_loupe',
             Buttons: [{
                 Labels: { default: { default: `Zoom-in`, ja: `拡大する` } },
@@ -5121,16 +5121,23 @@ I.createButtonGroup = (Par = {}) => {
         delete Par.Area;
         return AreaToBeAppended.addButtonGroup(Par);
     }
-    if(typeof Par.className != 'string' || !Par.className) delete Par.className;
-    if(typeof Par.id        != 'string' || !Par.id)        delete Par.id;
-    const ClassNames = ['bibi-buttongroup'];
-    if(Par.Tiled) ClassNames.push('bibi-buttongroup-tiled');
-    if(Par.Sticky) ClassNames.push('sticky');
-    if(Par.className) ClassNames.push(Par.className);
-    Par.className = ClassNames.join(' ');
-    const ButtonsToAdd = Array.isArray(Par.Buttons) ? Par.Buttons : Par.Button ? [Par.Button] : [];
+    const ButtonsToBeAdded = Array.isArray(Par.Buttons) ? Par.Buttons : Par.Button ? [Par.Button] : [];
     delete Par.Buttons;
     delete Par.Button;
+    const ClassNames = ['bibi-buttongroup'];
+    if(Par.Type == 'Steps') {
+        const BaseClassName = 'bibi-buttongroup-steps', UniqueClassName = BaseClassName + '-' + Date.now();
+        ClassNames.push(BaseClassName);
+        ClassNames.push(UniqueClassName);
+        if(typeof Par.MinLabels == 'object') sML.CSS.appendRule('.' + UniqueClassName + ':before', `content: "` + I.distillLabels(Par.MinLabels)['default'][O.Language] + `" !important;`);
+        if(typeof Par.MaxLabels == 'object') sML.CSS.appendRule('.' + UniqueClassName + ':after',  `content: "` + I.distillLabels(Par.MaxLabels)['default'][O.Language] + `" !important;`);
+        ButtonsToBeAdded.forEach(Button => Button.Type = 'radio');
+    } else if(Par.Type == 'Tiled' || Par.Tiled) {
+        ClassNames.push('bibi-buttongroup-tiled');
+    }
+    if(Par.Sticky) ClassNames.push('sticky');
+    Par.className = ClassNames.concat(typeof Par.className == 'string' && Par.className ? Par.className : []).join(' ');
+    if(typeof Par.id != 'string' || !Par.id) delete Par.id;
     const ButtonGroup = sML.create('ul', Par);
     ButtonGroup.Buttons = [];
     ButtonGroup.addButton = function(Par) {
@@ -5146,9 +5153,10 @@ I.createButtonGroup = (Par = {}) => {
         Button.ButtonGroup.Buttons.push(Button);
         return Button;
     };
-    ButtonsToAdd.forEach(ButtonToAdd => {
-        if(!ButtonToAdd.Type && Par.ButtonType) ButtonToAdd.Type = Par.ButtonType;
-        ButtonGroup.addButton(ButtonToAdd);
+    ButtonsToBeAdded.forEach(Button => {
+        if(!Button.Type && Par.ButtonType) Button.Type = Par.ButtonType;
+        if(!Button.action && Par.action) Button.action = Par.action;
+        ButtonGroup.addButton(Button);
     });
     ButtonGroup.Busy = false;
     return ButtonGroup;
