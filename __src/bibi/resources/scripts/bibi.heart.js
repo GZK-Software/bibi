@@ -806,19 +806,33 @@ L.loadContainer = () => O.openDocument(B.Container.Source).then(L.loadContainer.
 L.loadPackage = () => O.openDocument(B.Package.Source).then(L.loadPackage.process);
 
     L.loadPackage.process = (Doc) => { // This is Used also from the Zine Extention.
-        const _Package  = Doc.getElementsByTagName('package' )[0];
-        const _Metadata = Doc.getElementsByTagName('metadata')[0], Metadata = B.Package.Metadata;
-        const _Manifest = Doc.getElementsByTagName('manifest')[0], Manifest = B.Package.Manifest;
-        const _Spine    = Doc.getElementsByTagName('spine'   )[0], Spine    = B.Package.Spine;
+        // ================================================================================
+        // NAMESPACES
+        // --------------------------------------------------------------------------------
+        const XMLNS = {}, DocEle = Doc.documentElement;
+        [DocEle, ...DocEle.children].forEach(_Ele => { if(!_Ele.hasAttributes()) return;
+            const Atts = _Ele.attributes; Object.keys(Atts).forEach(i => { const Att = Atts[i]; if(!Att || !Att.name || !Att.value) return;
+                const Matched = Att.name.match(/^xmlns:(\w+)$/);
+                if(Matched) XMLNS[Matched[1]] = Att.value;
+            })
+        });
+        const getOPFElementsByTagNameIn = (Anc, TN) => [...new Set([...Anc.getElementsByTagName(TN), ...Anc.getElementsByTagName('opf:' + TN), ...Anc.getElementsByTagNameNS(XMLNS['opf'], TN) ])],
+               getDCElementsByTagNameIn = (Anc, TN) => [...new Set([                                 ...Anc.getElementsByTagName( 'dc:' + TN), ...Anc.getElementsByTagNameNS(XMLNS[ 'dc'], TN) ])];
+        // ================================================================================
+        // STRUCTURE
+        // --------------------------------------------------------------------------------
+        const _Package  = getOPFElementsByTagNameIn(Doc, 'package' )[0];
+        const _Metadata = getOPFElementsByTagNameIn(Doc, 'metadata')[0], Metadata = B.Package.Metadata;
+        const _Manifest = getOPFElementsByTagNameIn(Doc, 'manifest')[0], Manifest = B.Package.Manifest;
+        const _Spine    = getOPFElementsByTagNameIn(Doc, 'spine'   )[0], Spine    = B.Package.Spine;
         const SourcePaths = {};
         // ================================================================================
         // METADATA
         // --------------------------------------------------------------------------------
-        const DCNS = _Package.getAttribute('xmlns:dc') || _Metadata.getAttribute('xmlns:dc');
         const UIDID = _Package.getAttribute('unique-identifier'), UIDE = UIDID ? Doc.getElementById(UIDID) : null, UIDTC = UIDE ? UIDE.textContent : '';
         Metadata['unique-identifier'] = UIDTC ? UIDTC.trim() : '';
-        ['identifier', 'language', 'title', 'creator', 'publisher'].forEach(Pro => sML.forEach(Doc.getElementsByTagNameNS(DCNS, Pro))(_Meta => (Metadata[Pro] ? Metadata[Pro] : Metadata[Pro] = []).push(_Meta.textContent.trim())));
-        sML.forEach(_Metadata.getElementsByTagName('meta'))(_Meta => {
+        ['identifier', 'language', 'title', 'creator', 'publisher'].forEach(Pro => sML.forEach(getDCElementsByTagNameIn(Doc, Pro))(_Meta => (Metadata[Pro] ? Metadata[Pro] : Metadata[Pro] = []).push(_Meta.textContent.trim())));
+        sML.forEach(getOPFElementsByTagNameIn(_Metadata, 'meta'))(_Meta => {
             if(_Meta.getAttribute('refines')) return; // Should be solved.
             let Property = _Meta.getAttribute('property');
             if(Property) {
@@ -852,7 +866,7 @@ L.loadPackage = () => O.openDocument(B.Package.Source).then(L.loadPackage.proces
         // MANIFEST
         // --------------------------------------------------------------------------------
         const PackageDir = B.Package.Source.Path.replace(/\/?[^\/]+$/, '');
-        sML.forEach(_Manifest.getElementsByTagName('item'))(_Item => {
+        sML.forEach(getOPFElementsByTagNameIn(_Manifest, 'item'))(_Item => {
             let Source = {
                 'id': _Item.getAttribute('id'),
                 'href': _Item.getAttribute('href'),
@@ -898,7 +912,7 @@ L.loadPackage = () => O.openDocument(B.Package.Source).then(L.loadPackage.proces
         if(B.PPD == 'rtl') SpreadBefore = 'right', SpreadAfter = 'left';
         else               SpreadBefore = 'left',  SpreadAfter = 'right';
         const SpreadsDocumentFragment = document.createDocumentFragment();
-        sML.forEach(_Spine.getElementsByTagName('itemref'))(ItemRef => {
+        sML.forEach(getOPFElementsByTagNameIn(_Spine, 'itemref'))(ItemRef => {
             const IDRef = ItemRef.getAttribute('idref'); if(!IDRef) return false;
             const Source = Manifest[SourcePaths[IDRef]]; if(!Source) return false;
             const Item = sML.create('iframe', { className: 'item', scrolling: 'no', allowtransparency: 'true', /*TimeCard: {}, stamp: function(What) { O.stamp(What, this.TimeCard); },*/
@@ -1105,11 +1119,11 @@ L.coordinateLinkages = (BasePath, RootElement, InNav) => {
             }
         }
         if(/^[a-zA-Z]+:/.test(HRefPathInSource)) {
-            A.Destination = { External: A.href };
+            A.Destination = { External: HRefPathInSource };
             A.jumpWithBibi = () => new Promise(resolve => {
                 const TargetInSource = A.getAttribute('target');
-                if(/^_(parent|self|top)$/.test(TargetInSource)) location.href = A.href;
-                else                                            window.open(A.href);
+                if(/^_(parent|self|top)$/.test(TargetInSource)) location.href = HRefPathInSource;
+                else                                                window.open(HRefPathInSource);
                 resolve();
             });
         } else {
@@ -1215,6 +1229,7 @@ L.loadItem = (Item, Opt = {}) => {
             O.file(Item.Source, {
                 Preprocess: (B.ExtractionPolicy || sML.UA.Gecko), // Preprocess if archived (or Gecko. For such books as styled only with -webkit/epub- prefixed properties. It's NOT Gecko's fault but requires preprocessing.)
                 initialize: () => {
+                    Item.Source.Content = Item.Source.Content.replace(/<a(\s+[\w\-]+(\s*=\s*('[^'']*'|"[^""]*"))?)*\s*\/>/ig, '<a$1></a>');
                     if(!S['allow-scripts-in-content']) {
                         Item.Source.Content = Item.Source.Content.replace(/<script(\s+[\w\-]+(\s*=\s*('[^'']*'|"[^""]*"))?)*\s*\/>/ig, '');
                         O.sanitizeItemSource(Item.Source, { As: 'HTML' });
@@ -1223,7 +1238,7 @@ L.loadItem = (Item, Opt = {}) => {
             }).then(ItemSource =>
                 ItemSource.Content
             )
-        : /\.(gif|jpe?g|png)$/i.test(Item.Source.Path) ? // Bitmap-in-Spine
+        : /\.(gif|jpe?g|png|webp)$/i.test(Item.Source.Path) ? // Bitmap-in-Spine
             O.file(Item.Source, {
                 URI: true
             }).then(ItemSource => [
@@ -1631,6 +1646,19 @@ R.renderReflowableItem = (Item) => {
             maxHeight: '100vh'
         });
     });
+    if(sML.UA.Gecko) {
+        // Part 1/2: Assist Gecko in the rendering of the orthogonal flow of writing-mode.
+        if(Item.OFREs === undefined) {
+            Item.OFREs = []; // Orthogonal Flow Root Elements
+            Item.contentDocument.querySelectorAll('body, body *').forEach(Ele => {
+                if(getComputedStyle(Ele).writingMode.split('-')[0] != getComputedStyle(Ele.parentNode).writingMode.split('-')[0]) {
+                    Ele.BibiOFREOriginalStyleWidthHeight = { width: Ele.style.width, height: Ele.style.height };
+                    Item.OFREs.push(Ele);
+                }
+            });
+        }
+        if(Item.OFREs.length) Item.OFREs.forEach(OFRE => sML.style(OFRE, OFRE.BibiOFREOriginalStyleWidthHeight));
+    }
     let PaginateWith = '';
     if(!Item.Outsourcing) {
         if(S['pagination-method'] == 'x') {
@@ -1703,6 +1731,10 @@ R.renderReflowableItem = (Item) => {
             break;
     }
     sML.deleteCSSRule(Item.contentDocument, WordWrappingStyleSheetIndex); ////
+    if(sML.UA.Gecko) {
+        // Part 2/2: Assist Gecko in the rendering of the orthogonal flow of writing-mode.
+        if(Item.OFREs.length) Item.OFREs.forEach(OFRE => sML.style(OFRE, { width: OFRE.offsetWidth + 'px', height: OFRE.offsetHeight + 'px' }));
+    }
     let ItemL = Item.HTML['scroll' + C.L_SIZE_L];
     const HowManyPages = Math.ceil((ItemL + PageGap) / (PageCL + PageGap));
     ItemL = (PageCL + PageGap) * HowManyPages - PageGap;
@@ -6030,13 +6062,14 @@ O.file = (Source, Opt = {}) => new Promise((resolve, reject) => {
 });
 
 
-O.isBin = (Source) => /\.(aac|gif|jpe?g|m4[av]|mp[g34]|ogg|[ot]tf|pdf|png|web[mp]|woff2?)$/i.test(Source.Path);
+O.isBin = (Source) => /\.(aac|gif|jpe?g|m4[av]|mp([34]|e?g)|ogg|[ot]tf|pdf|png|web[mp]|woff2?)$/i.test(Source.Path);
 
 O.createBlobURL = (DT, CB, MT) => URL.createObjectURL(DT == 'Text' ? new Blob([CB], { type: MT }) : CB);
 
 
 O.ContentTypes = {
     'pdf'     : 'application/pdf',
+    'ya?ml'   : 'application/x-yaml',
     'xht(ml)?': 'application/xhtml+xml',
     'xml'     : 'application/xml',
     'aac'     :       'audio/aac',
@@ -6054,8 +6087,7 @@ O.ContentTypes = {
     'js'      :        'text/javascript',
     'html?'   :        'text/html',
     'mp4'     :       'video/mp4',
-    'webm'    :       'video/webm',
-    'ya?ml'   : 'application/x-yaml'
+    'webm'    :       'video/webm'
 };
 
 O.getContentType = (FileName) => {
@@ -6127,7 +6159,7 @@ O.preprocess = (Source) => {
                 getRE: () => /url\(["']?(?!(?:https?|data):)(.+?)['"]?\)/g,
                 PathRef: '$1',
                 Patterns: [
-                    { Extensions: 'gif|png|jpe?g|svg|ttf|otf|woff' }
+                    { Extensions: 'gif|jpe?g|[ot]tf|png|svg|webp|woff2?' }
                 ]
             }],
             init: function() { const RRs = this.ReplaceRules;
@@ -6170,7 +6202,7 @@ O.preprocess = (Source) => {
                 Patterns: [
                     { Attribute: 'href',           Extensions: 'css' },
                     { Attribute: 'src',            Extensions: 'svg' },
-                    { Attribute: 'src|xlink:href', Extensions: 'gif|png|jpe?g' }
+                    { Attribute: 'src|xlink:href', Extensions: 'gif|jpe?g|png|svg|webp' }
                 ]
             }]
         },
@@ -6183,9 +6215,9 @@ O.preprocess = (Source) => {
                 PathRef: '$2',
                 Patterns: [
                     { Attribute: 'href',           Extensions: 'css' },
-                    { Attribute: 'src',            Extensions: 'js|svg' },
-                    { Attribute: 'src|xlink:href', Extensions: 'gif|png|jpe?g|mp([34]|e?g)|m4[av]' },
-                    { Attribute: 'poster',         Extensions: 'gif|png|jpe?g' }
+                    { Attribute: 'src',            Extensions: 'aac|js|m4[av]|mp([34]|e?g)|ogg|svg|webm' },
+                    { Attribute: 'src|xlink:href', Extensions: 'gif|jpe?g|png|svg|webp' },
+                    { Attribute: 'poster',         Extensions: 'gif|jpe?g|png|svg|webp' }
                 ]
             }]
         }
@@ -6252,10 +6284,10 @@ O.getViewportZooming = () => document.body.clientWidth / window.innerWidth;
 
 
 O.rrr = (Path) => { // resolve relative reference
-    while(/([^:\/])\/{2,}/.test(Path)) Path = Path.replace(/([^:\/])\/{2,}/g, '$1/');
-    while(        /\/\.\//.test(Path)) Path = Path.replace(        /\/\.\//g,   '/');
-    while(/[^\/]+\/\.\.\//.test(Path)) Path = Path.replace(/[^\/]+\/\.\.\//g,    '');
-    /**/                               Path = Path.replace(      /^(\.\/)+/g,    '');
+    [ [/([^:\/])\/{2,}/, '$1/'],
+      [/\/\.\//,           '/'],
+      [/[^\/]+\/\.\.\//,    ''],
+      [/^(\.\/)+/,          ''] ].forEach(RR => { while(RR[0].test(Path)) Path = Path.replace(RR[0], RR[1]); });
     return Path;
 };
 
