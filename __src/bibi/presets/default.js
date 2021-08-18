@@ -12,7 +12,7 @@ Bibi.preset({
 //-- Behavior
 //----------------------------------------------------------------------------------------------------------------------------------------------
 
-"reader-view-mode"              : "paged", // "paged" or "horizontal" or "vertical" ("paged" is for flipping, "horizontal" and "vertical" are for scrolling)
+"reader-view-mode"              : "auto", // "auto", "paged", "horizontal" or "vertical" ("paged" is for flipping, "horizontal" and "vertical" are for scrolling.)
 "full-breadth-layout-in-scroll" : "no", // "yes" or "no" or "desktop" or "mobile"
 "fix-reader-view-mode"          : "no", // "yes" or "no" or "desktop" or "mobile"
 
@@ -68,8 +68,7 @@ Bibi.preset({
 "item-padding-top"           : 48, // Number of pixel (It affects only for reflowable books.)
 "item-padding-bottom"        : 24, // Number of pixel (It affects only for reflowable books.)
 
-"spread-gap"                 : 48, // Number of pixel (It affects only in paged view mode.)
-"spread-margin"              : 0, // Number of pixel
+"content-margin"             : 0, // Number of pixel
 
 "fix-nav-ttb"                : "no", // "yes" or "no" or "desktop" or "mobile"
 
