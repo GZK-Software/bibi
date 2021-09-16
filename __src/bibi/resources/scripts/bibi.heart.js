@@ -12,6 +12,7 @@ export const Bibi = { 'version': '____Bibi-Version____', 'href': 'https://bibi.e
 Bibi.SettingTypes = {
     'boolean': [
         'allow-placeholders',
+        'background-spreading',
         'indicate-orthogonal-arrows-if-necessary',
         'prioritise-fallbacks',
         'prioritise-viewer-operation-over-text-selection'
@@ -1434,7 +1435,7 @@ L.patchItemStyles = (Item) => new Promise(resolve => { // only for reflowable.
     else if(/-lr$/.test(Item.WritingMode)) if(ItemBodyComputedStyle.marginRight != ItemBodyComputedStyle.marginLeft) Item.Body.style.marginRight = ItemBodyComputedStyle.marginLeft;
     else                                   if(ItemBodyComputedStyle.marginBottom != ItemBodyComputedStyle.marginTop) Item.Body.style.marginBottom = ItemBodyComputedStyle.marginTop;
     //*/
-    [
+    if(S['background-spreading']) [
         [Item.Box, ItemHTMLComputedStyle, Item.HTML],
         [Item,     ItemBodyComputedStyle, Item.Body]
     ].forEach(Par => {
