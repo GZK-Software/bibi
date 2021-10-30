@@ -100,7 +100,7 @@ Bibi.preset({
 
 "indicate-orthogonal-arrows-if-necessary" : false,
 
-"recognize-repeated-taps-separately": false, // true or false
+"recognize-repeated-taps-separately": true, // true or false
 // If true:
 //     * Bibi recognizes all the repeated tap/clicks as separate single-tap/clicks.
 //     * It accelerates some UI response, but Bibi no longer recognizes double/triple-tap/click.
