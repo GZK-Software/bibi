@@ -45,6 +45,8 @@ Bibi.preset({
 "base-font-size"             : "auto", // Number of pixel or "auto"
 "font-size-scale-per-step"   : 1.25, // Number of scale
 
+"use-voice-tts"              : "yes",
+
 "use-loupe"                  : "desktop", // "yes" or "no" or "desktop" or "mobile" (Note: Loupe buttons will not appear in touch-devices even if it is set "yes" or "mobile".)
 "loupe-max-scale"            : 4, // Number of scale (greater than 1)
 "loupe-scale-per-step"       : 1.6, // Number of scale (greater than 1, less than or equal to "loupe-max-scale")
