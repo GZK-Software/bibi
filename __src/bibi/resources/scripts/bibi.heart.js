@@ -3871,15 +3871,25 @@ I.VoiceTTS = { create:() => {
     if(S['use-voice-tts']) {
         console.log('use-voice-tts');
         const VoiceTTS = I.VoiceTTS = {
-            url: 'http://localhost:59125/process?INPUT_TYPE=TEXT&OUTPUT_TYPE=AUDIO&AUDIO=WAVE_FILE&LOCALE=en_US&INPUT_TEXT=',
+            initurl: 'http://localhost:59125/process?INPUT_TYPE=TEXT&OUTPUT_TYPE=AUDIO&AUDIO=WAVE_FILE&LOCALE=en_GB&',
+            url:'',
             autoplay: true,
+            gender: 'female',
             currentParagraph: -1,
+            seturl: () => {
+                if (VoiceTTS.gender=='female') {
+                  VoiceTTS.url = VoiceTTS.initurl + 'VOICE=dfki-prudence&INPUT_TEXT=';
+                }
+                if (VoiceTTS.gender=='male') {
+                  VoiceTTS.url = VoiceTTS.initurl + 'VOICE=dfki-spike&INPUT_TEXT=';
+                }
+            },
             speak: () => {
                 //R.moveBy({Distance: 1}); //move forward
                 //R.focusOn({ Destination: I.PageObserver.Current.Pages[1], Duration: 1 }); //move Reader one page, the select efect is because the panel is opened
                 
-                var leftPage = I.PageObserver.Current.Pages[0];
-                var rightPage = I.PageObserver.Current.Pages[1];
+                let leftPage = I.PageObserver.Current.Pages[0];
+                let rightPage = I.PageObserver.Current.Pages[1];
                 
                 console.log('VoiceTTS speak ' + (I.PageObserver.Current.List[0] ? B.Title + '=' +
                                                  I.PageObserver.getP({ Page: leftPage.Item.Pages[leftPage.IndexInItem + 1] }) + '=' +
@@ -3887,66 +3897,68 @@ I.VoiceTTS = { create:() => {
                                                  leftPage.IndexInItem + '=' +
                                                  rightPage.IndexInItem + '=' +
                                                  leftPage.Item.src : null));
+                //leftPage.Item = frame src of chapter
+                //leftPage.Index = page number
+                //leftPage.IndexInItem is the page in chapter
                 //I.PageObserver.Current.List[0].Page.Item.outerHTML = iframe with src to the current chapter
                 //I.PageObserver.getP of both Pages in I.PageObserver.Current give the same value
                 
                 const leftPPath = I.PageObserver.getP({ Page: leftPage.Item.Pages[leftPage.IndexInItem + 1] }).split('.');
                 console.log("leftPPath =" + leftPPath);
-                let node;
-                if (leftPPath.length>1) {
-                    node = leftPage.Item.contentDocument.body.querySelector("*:nth-child(" + leftPPath[1] +")");
-                    console.log(" left node children= " + node.children.length);
-                    for (let i=2;i<leftPPath.length;i++) {
-                        node = node.querySelector("*:nth-child(" + leftPPath[i] +")");
-                    }
-                    console.log(" left paragraph = " + node.innerHTML);
-                }
-                if (VoiceTTS.currentParagraph ==-1) {
-                    VoiceTTS.currentParagraph = leftPPath[leftPPath.length-1];
-                }
-                console.log("currentParagraph = " + VoiceTTS.currentParagraph);
                 const rightPPath = I.PageObserver.getP({ Page: rightPage.Item.Pages[rightPage.IndexInItem + 1] }).split('.');
                 console.log("rightPPath = " + rightPPath);
-                let textToSpeech;
+                
                 if (leftPPath[0] === rightPPath[0] && leftPPath[1] === rightPPath[1]) {
-                    //for (let i=leftPPath[leftPPath.length-1]; i<=rightPPath[rightPPath.length-1];i++)
-                    //textToSpeech = leftPage.Item.contentDocument.body.querySelector("*:nth-child(" + leftPPath[1] +")").querySelector("*:nth-child(" + leftPPath[2] + ")").querySelector("*:nth-child(" + leftPPath[leftPPath.length-1] + ")").innerHTML;
-                    textToSpeech = node.innerHTML
                 }
+                
+                if (VoiceTTS.currentParagraph ==-1) {
+                    VoiceTTS.currentParagraph = leftPPath[leftPPath.length-1];
+                    if (leftPPath[leftPPath.length-1]>rightPPath[rightPPath.length-1]) {
+                        VoiceTTS.currentParagraph = rightPPath[rightPPath.length-1];
+                    }   
+                }
+                console.log("currentParagraph = " + VoiceTTS.currentParagraph);
+                
+                let textToSpeech = VoiceTTS.getTextToSpeech();
+                
                 if (VoiceTTS.ButtonGroup.getElementsByTagName("audio").length==0) {
                   VoiceTTS.ButtonGroup.innerHTML = VoiceTTS.ButtonGroup.innerHTML + '<audio '
                       + (VoiceTTS.autoplay ? 'autoplay':' ')
                       + ' controls src="' + VoiceTTS.url + encodeURIComponent(textToSpeech) + '" type="audio/wav" />';
                 }
             },
+            getTextToSpeech: () => {
+                let leftPage = I.PageObserver.Current.Pages[0];
+                const leftPPath = I.PageObserver.getP({ Page: leftPage.Item.Pages[leftPage.IndexInItem + 1] }).split('.');
+                let node, maxPar =  leftPPath[leftPPath.length-1];
+                if (leftPPath.length>1) {
+                    node = leftPage.Item.contentDocument.body.querySelector("*:nth-child(" + leftPPath[1] +")");
+                    for (let i=2;i<leftPPath.length-1;i++) {
+                        node = node.querySelector("*:nth-child(" + leftPPath[i] +")");
+                    }
+                    maxPar = node.children.length;
+                    console.log(" current paragraph = " + VoiceTTS.currentParagraph + "/" + maxPar);
+                    if (VoiceTTS.currentParagraph<=maxPar) {
+                        node = node.querySelector("*:nth-child(" + VoiceTTS.currentParagraph +")");
+                    }
+                    console.log(" current paragraph = " + node.innerHTML);
+                    return node.innerHTML;
+                }
+            },
             nextTrack: () => {
                 let audioElem = VoiceTTS.ButtonGroup.getElementsByTagName("audio")[0];
                 audioElem.onended = function (event) {
                     console.log("onended");
+                    console.log("VoiceTTS.url = " + VoiceTTS.url);
                     VoiceTTS.currentParagraph++;
-                    var leftPage = I.PageObserver.Current.Pages[0];
-                    const leftPPath = I.PageObserver.getP({ Page: leftPage.Item.Pages[leftPage.IndexInItem + 1] }).split('.');
-                    let node, maxPar =  leftPPath[leftPPath.length-1];
-                    if (leftPPath.length>1) {
-                        node = leftPage.Item.contentDocument.body.querySelector("*:nth-child(" + leftPPath[1] +")");
-                        for (let i=2;i<leftPPath.length-1;i++) {
-                            node = node.querySelector("*:nth-child(" + leftPPath[i] +")");
-                        }
-                        maxPar = node.children.length;
-                        console.log(" current paragraph = " + VoiceTTS.currentParagraph + "/" + maxPar);
-                        if (VoiceTTS.currentParagraph<=maxPar) {
-                            node = node.querySelector("*:nth-child(" + VoiceTTS.currentParagraph +")");
-                            console.log(" current paragraph = " + node.innerHTML);
-                            let textToSpeech = node.innerHTML;
-                            audioElem.src = VoiceTTS.url + encodeURIComponent(textToSpeech); 
-                            audioElem.play();
-                        }
-                    }
+                    let textToSpeech = VoiceTTS.getTextToSpeech();
+                    audioElem.src = VoiceTTS.url + encodeURIComponent(textToSpeech); 
+                    audioElem.play();
                 };
                 console.log("audioElem.src = " + audioElem.src);
             },
             initialise: () => {
-                VoiceTTS.ButtonGroup = I.createSubpanel({
+                VoiceTTS.voiceSubPanel = I.createSubpanel({
                     Opener: I.Menu.R.addButtonGroup({ Sticky: true, id: 'bibi-buttongroup_voice' }).addButton({
                         Type: 'toggle',
                         Labels: {
@@ -3958,33 +3970,31 @@ I.VoiceTTS = { create:() => {
                     }),
                     id: 'bibi-subpanel-voice',
                     onopened: () => {
-                        let autoplayBtn = document.getElementById("bibi-button-audio-autoplay");
-                        if (VoiceTTS.autoplay) {
-                          I.setUIState(autoplayBtn, 'active');
-                        } else {
-                          I.setUIState(autoplayBtn, 'default');
-                        };
                         VoiceTTS.currentParagraph =-1;
+                        VoiceTTS.seturl();
                         VoiceTTS.speak();
                         VoiceTTS.nextTrack();
                         }
-                }).addSection({
-                  Labels: { default: { default: `Start Voice`, ja: `Start Voice` } }
+                });
+                VoiceTTS.ButtonGroup1 = VoiceTTS.voiceSubPanel.addSection({
+                  Labels: { default: { default: `Gender Voice`, ja: `Gender Voice` } }
                 }).addButtonGroup({
+                    ButtonType: 'radio',
                     Buttons: [{
-                        Type: 'toggle',
-                        Labels: {
-                            default: { default: `No autoplay:`, ja: `No autoplay:` },
-                            active: { default: `Autoplay:`, ja: `Autoplay:` }
-                            },
+                        Labels: { default: { default: `Female:`, ja: `Female:` } },
                         Icon: `<span class="bibi-icon bibi-icon-voice"></span>`,
-                        id: 'bibi-button-audio-autoplay',
-                        action: () => {
-                            VoiceTTS.autoplay = !VoiceTTS.autoplay;
-                            if (VoiceTTS.autoplay) VoiceTTS.ButtonGroup.getElementsByTagName("audio")[0].autoplay = true;
-                            }
+                        action: () => {VoiceTTS.gender='female';VoiceTTS.seturl();},
+                        gender: 'female'
+                    },{
+                       Labels: { default: { default: `Male:`, ja: `Male:` } },
+                        Icon: `<span class="bibi-icon bibi-icon-voice"></span>`,
+                        action: () => {VoiceTTS.gender='male';VoiceTTS.seturl();} ,
+                        gender: 'male'
                     }]
-                    });
+                    }).Buttons.forEach(Button => { if(Button.gender == VoiceTTS.gender) I.setUIState(Button, 'active'); });;
+                VoiceTTS.ButtonGroup = VoiceTTS.voiceSubPanel.addSection({
+                  Labels: { default: { default: `Play`, ja: `Play` } }
+                }).addButtonGroup();
             }
         }
         VoiceTTS.initialise();
